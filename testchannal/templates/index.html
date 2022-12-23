@@ -15,7 +15,7 @@
         socket.onmessage = function (event){
             var data = JSON.parse(event.data);
             console.log(data);
-            document.querySelector('#app').innerText = data.message;
+            document.querySelector('#app').innerText = data.message.message;
         }
 
     </script>

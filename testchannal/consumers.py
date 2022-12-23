@@ -1,6 +1,7 @@
 import channels
 from asgiref.sync import async_to_sync
-from channels.generic.websocket import WebsocketConsumer
+from channels.exceptions import StopConsumer
+from channels.generic.websocket import WebsocketConsumer, SyncConsumer
 import json
 from time import sleep
 import channels.layers
@@ -59,33 +60,42 @@ from random import randint
 class WSConsumer(WebsocketConsumer):
     groups = ["broadcast"]
 
-    def connect(self):
+    def websocket_connect(self, event):
         # Called on connection.
         # To accept the connection call:
+        async_to_sync(self.channel_layer.group_add)(
+            "broadcast",
+            self.channel_name
+        )
         self.accept()
 
         for i in range(5):
             self.send(json.dumps({'message': randint(1, 100)}))
             sleep(1)
-        # Or accept the connection and specify a chosen subprotocol.
-        # A list of subprotocols specified by the connecting client
-        # will be available in self.scope['subprotocols']
-        # self.accept("subprotocol")
-        # To reject the connection, call:
+        self.send(json.dumps({'message': event}))
+        print('WebSocket connected....', event)
 
-        # self.close()
+    def websocket_receive(self, event):
+        """
+        Called when a WebSocket frame is received. Decodes it and passes it
+        to receive().
+        """
+        if "text" in event:
+            print('EVENT', event)
+            self.receive(text_data=event["text"])
+            self.send(json.dumps({'message': event}))
+        else:
+            print('EVENT else ', event)
+            self.receive(bytes_data=event["bytes"])
+            self.send(json.dumps({'message': event}))
+        print('WebSocket received....', event)
 
-    def receive(self, text_data=None, bytes_data=None):
-        # Called with either text_data or bytes_data for each frame
-        # You can call:
-        self.send(text_data="Hello world!")
-        # Or, to send a binary frame:
-        self.send(bytes_data="Hello world!")
-        # Want to force-close the connection? Call:
-        self.close()
-        # Or add a custom WebSocket error code!
-        self.close(code=4123)
+    def websocket_disconnect(self, event):
+        """
+        Called when a WebSocket connection is closed. Base level so you don't
+        need to call super() all the time.
+        """
+        print('WebSocket disconnected....', event)
+        raise StopConsumer()
 
-    def disconnect(self, close_code):
-        print('DISCONNECTED!')
 
